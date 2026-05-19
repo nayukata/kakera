@@ -1,0 +1,54 @@
+{
+  "collapse-filter": false,
+  "search": "-path:README -path:.audit -file:INDEX -file:RECENT -file:REVIEW",
+  "showTags": false,
+  "showAttachments": false,
+  "hideUnresolved": true,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "query": "path:knowledge/feedback",
+      "color": { "a": 1, "rgb": 5999573 }
+    },
+    {
+      "query": "path:knowledge/design",
+      "color": { "a": 1, "rgb": 7384391 }
+    },
+    {
+      "query": "path:knowledge/user",
+      "color": { "a": 1, "rgb": 15564593 }
+    },
+    {
+      "query": "path:knowledge/project",
+      "color": { "a": 1, "rgb": 14902194 }
+    },
+    {
+      "query": "path:knowledge/decisions",
+      "color": { "a": 1, "rgb": 10185643 }
+    },
+    {
+      "query": "path:knowledge/mistakes",
+      "color": { "a": 1, "rgb": 12582912 }
+    },
+    {
+      "query": "path:knowledge/questions",
+      "color": { "a": 1, "rgb": 7517435 }
+    },
+    {
+      "query": "file:MEMORY",
+      "color": { "a": 1, "rgb": 16777215 }
+    }
+  ],
+  "collapse-display": false,
+  "showArrow": false,
+  "textFadeMultiplier": -1.6,
+  "nodeSizeMultiplier": 1,
+  "lineSizeMultiplier": 0.8,
+  "collapse-forces": false,
+  "centerStrength": 0.2,
+  "repelStrength": 15,
+  "linkStrength": 0.85,
+  "linkDistance": 300,
+  "close": false
+}

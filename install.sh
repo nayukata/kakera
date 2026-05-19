@@ -104,6 +104,22 @@ for f in on-session-end.sh save-knowledge.sh; do
 done
 ok "bin/ hooks/ symlinked from repo"
 
+# Obsidian graph view テンプレ (INDEX/RECENT/REVIEW を除外、カテゴリ別カラーグループ)
+# 既存の .obsidian/graph.json があれば触らない (ユーザー設定を尊重)
+if [ -d "$KAKERA_HOME/.obsidian" ] || [ -t 0 ] && read -r -p "  Obsidian で graph view を使う? graph.json テンプレを置きますか [y/N] " ans 2>/dev/null; then
+  case "${ans:-n}" in
+    y|Y|yes|Yes)
+      mkdir -p "$KAKERA_HOME/.obsidian"
+      if [ ! -f "$KAKERA_HOME/.obsidian/graph.json" ]; then
+        cp "$REPO_DIR/templates/obsidian/graph.json" "$KAKERA_HOME/.obsidian/graph.json"
+        ok ".obsidian/graph.json template copied"
+      else
+        warn ".obsidian/graph.json already exists (skipped)"
+      fi
+      ;;
+  esac
+fi
+
 # .kakera-config.toml 雛形 (既存なら触らない)
 if [ ! -f "$KAKERA_HOME/.kakera-config.toml" ]; then
   cat > "$KAKERA_HOME/.kakera-config.toml" <<EOF

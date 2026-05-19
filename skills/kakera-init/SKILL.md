@@ -23,7 +23,7 @@ kakera plugin の初回セットアップを対話で完了する。
 
 1. **Vault パス**: `~/kakera` (default) / `~/Obsidian/<vault名>/kakera` / カスタム
 2. **Obsidian 連携**: 「Obsidian で graph view を使いますか?」 yes/no
-   - yes なら graph 設定 (フォルダ別カラーグループ等) の `.obsidian/graph.json` 雛形を提案
+   - yes なら `$KAKERA_HOME/.obsidian/graph.json` に repo の `templates/obsidian/graph.json` をコピー (既存があれば触らない)。INDEX / RECENT / REVIEW を除外する search filter とカテゴリ別カラーグループが入っている
    - no なら何もしない
 3. **再会スタイル**: `explicit` (明示多め) / `implicit` (明示少なめ、default)
 4. **コーチモード**: on / off (default on)。Claude が対話中の理解の怪しさを検出して問いかけるかどうか。後で `/kakera-coach` でも切り替え可能
