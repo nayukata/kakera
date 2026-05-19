@@ -72,6 +72,12 @@ if [ -x "$BIN_DIR/regen-hubs.py" ]; then
   echo "[$(date)] Hubs regenerated" >> "$LOG"
 fi
 
+# 全ノートサマリ INDEX.md を再生成 (検索の入口)
+if [ -x "$BIN_DIR/build-index.py" ]; then
+  "$PYTHON" "$BIN_DIR/build-index.py" >> "$LOG" 2>&1 || true
+  echo "[$(date)] INDEX rebuilt" >> "$LOG"
+fi
+
 # 月初 audit (その月にまだ走っていなければ実行)
 AUDIT_FLAG="$KAKERA_HOME/.audit-$(date +%Y-%m).md"
 if [ -x "$BIN_DIR/audit.py" ] && [ ! -f "$AUDIT_FLAG" ]; then

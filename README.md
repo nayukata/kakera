@@ -245,6 +245,7 @@ install.sh が終わると「次のステップ」を出すので、それに従
 ```
 $KAKERA_HOME/
 ├── MEMORY.md            # 目次
+├── INDEX.md             # 全ノート 1 行サマリ (検索の入口、自動生成)
 ├── REVIEW.md            # 復習キュー (週次自動生成)
 ├── .kakera-config.toml  # 設定ファイル
 └── knowledge/
@@ -271,7 +272,7 @@ $KAKERA_HOME/
 | skill | 用途 |
 |---|---|
 | `/kakera-init` | 初回セットアップ |
-| `/kakera-search <query>` | メモの検索 (ファジー / 自然文対応)。引数なしで直近一覧 |
+| `/kakera-search [--in <category>] <query>` | メモの検索 (INDEX を先読みして候補絞り込み、ファジー / 自然文 / カテゴリ縛り対応) |
 | `/kakera-study <query>` | 保留した問いを 1 件解く対話。引数なしでリスト、曖昧キーワードで絞り込み |
 | `/kakera-review` | 古くなったメモ・昇格候補のメンテ。学習対話はしない |
 | `/kakera-coach [on\|off]` | コーチモードの on/off 切り替え。引数なしで反転 |

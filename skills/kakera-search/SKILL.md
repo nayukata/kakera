@@ -1,7 +1,7 @@
 ---
 name: kakera-search
 description: kakera Vault の蓄積知識を全文検索 + Claude が関連度評価して要約する。「あの判断どこだっけ」「以前似た問題を扱った」の救済。ユーザーが「kakera を検索」「過去の判断を引きたい」と発言した時、または引数 query が与えられた時に発動。
-argument-hint: "<検索クエリ> -- 省略時はユーザーに尋ねる"
+argument-hint: "[--in <category>] <検索クエリ> -- 省略時は INDEX を表示"
 ---
 
 # kakera-search
@@ -9,40 +9,51 @@ argument-hint: "<検索クエリ> -- 省略時はユーザーに尋ねる"
 ## 目的
 
 蓄積された knowledge ノートから、現在の話題に関連するものを引き出す。
-ripgrep で全文検索し、Claude が関連度を判断して要約する。
+`$KAKERA_HOME/INDEX.md` (全ノートサマリ) を先に Read してコンテキスト消費を抑え、候補に絞ってから本文を Read する。
 
 ## 実行手順
 
-### 1. クエリ確定 (引数の扱い)
+### 1. クエリと引数の解釈
+
+引数フォーマット: `[--in <category>] <query>`
 
 | 入力 | 動作 |
 |---|---|
-| なし | 直近のメモ (Top 10 を recency 順) を表示し、「何を探す?」と尋ねる |
+| なし | INDEX.md を表示し、「何を探す?」と尋ねる |
 | 完全一致するファイル名 | そのノートを即開く |
-| 単一キーワード ("認証" "RLS" 等) | 曖昧検索: title / description / 本文を順に重み付けて relevance 順 |
+| 単一キーワード ("認証" "RLS" 等) | 曖昧検索: INDEX で description 優先、必要なら本文も grep |
 | 自然文 ("あの認証の決定") | 特徴語を抽出 (1-3 語) して上と同じ流れ |
+| `--in <category> <query>` | カテゴリ縛り。0 件なら**自動で全カテゴリにフォールバック** |
 
-### 2. 検索範囲
+カテゴリ縛りは opt-in。`<category>` は `decisions / mistakes / feedback / design / project / user / questions` のいずれか。
+`--in mistakes pgbouncer` のように使う。
 
-- `$KAKERA_HOME/knowledge/` 配下を `rg` で再帰検索
-- frontmatter の `description` と本文の両方を対象
-- 大文字小文字無視 (`-i`)、wikilink 内も含む
-
-### 3. 検索コマンド
+### 2. 検索フロー (INDEX 先読み)
 
 ```bash
 KAKERA_HOME="${KAKERA_HOME:-$HOME/kakera}"
-# まずファイル名で完全一致を試す (ファジー全文検索より優先)
+
+# 1. INDEX.md を Read (1 ノート 1 行サマリ)
+cat "$KAKERA_HOME/INDEX.md"
+
+# 2. INDEX のテキストに対してクエリを当て、候補を絞る (Claude が読みながら判断)
+#    --in 指定があれば該当 ## カテゴリ/ ブロックのみを対象
+
+# 3. ファイル名完全一致を優先試行
 find "$KAKERA_HOME/knowledge" -name "*<query>*.md"
 
-# ヒットしなければ全文検索
+# 4. INDEX で見つからなかった場合や本文確認したい場合に rg
 rg -l -i "<query>" "$KAKERA_HOME/knowledge/"
-
-# 自然文の場合は特徴語を Claude が抽出してから rg を複数回叩く
 ```
 
-- ヒット数が多すぎる時 (10 件超) は `description` のみで再検索して絞る
+- ヒットが多すぎる (10 件超) なら description 優先で再絞り込み
 - ヒット 1 件 → そのまま開く、複数 → 確認
+
+### 3. カテゴリ縛りでヒット 0 だったら
+
+`--in <category>` 指定で 0 件だった場合、自動で全カテゴリに広げて再検索する。
+その際「指定カテゴリには無かったので、全カテゴリで検索しました」と明示してから結果を返す。
+ユーザーが「思っていたカテゴリに無い」事実に気付ける。
 
 ### 4. Claude による関連度評価
 

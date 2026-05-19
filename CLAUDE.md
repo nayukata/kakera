@@ -21,8 +21,15 @@ Vault パス: 環境変数 `$KAKERA_HOME` (default `~/kakera`)。
 
 ## 検索トリガー (Claude が記憶を引く)
 
-過去参照 (「前に」「以前」「あの時」「前回」) や設計判断議論では、提案前に `$KAKERA_HOME/knowledge/` を検索する。
+過去参照 (「前に」「以前」「あの時」「前回」) や設計判断議論では、提案前に knowledge を検索する。
 typo 修正やスタイル変更などはスキップ。
+
+検索手順
+1. まず `$KAKERA_HOME/INDEX.md` (全ノート 1 行サマリ) を Read
+2. 関連候補を description ベースで絞り込む
+3. 必要なら該当ノート本文を Read
+
+これでファイル数が増えても context 消費を抑えられる。INDEX は `bin/build-index.py` が SessionEnd hook で自動更新する。
 
 ## session 開始時の受動再会
 

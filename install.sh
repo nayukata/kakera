@@ -96,7 +96,7 @@ declare_hub questions "問い"           "未解決の問い (8 割止め)"
 
 # bin/ hooks/ を symlink (リポジトリ更新が即反映されるように)
 mkdir -p "$KAKERA_HOME/bin" "$KAKERA_HOME/hooks"
-for f in audit.py regen-hubs.py review-queue.py; do
+for f in audit.py regen-hubs.py review-queue.py build-index.py; do
   ln -sfn "$REPO_DIR/bin/$f" "$KAKERA_HOME/bin/$f"
 done
 for f in on-session-end.sh save-knowledge.sh; do
