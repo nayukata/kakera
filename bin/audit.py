@@ -121,6 +121,7 @@ def main() -> int:
     stales: list[tuple[str, str, int]] = []
     promotions: list[tuple[str, int, str]] = []
     duplicates: list[tuple[str, str, float]] = []
+    recurrents: list[tuple[str, int, str]] = []  # (name, recurrence, last_hit)
     by_category: dict[str, list[tuple[str, str]]] = defaultdict(list)
 
     for md in sorted(KNOWLEDGE.glob("**/*.md")):
@@ -142,6 +143,16 @@ def main() -> int:
         rc = reference_count(fm)
         if rc >= 3 and decay != "permanent":
             promotions.append((f"{category}/{name}", rc, str(decay)))
+
+        # mistakes ノートの再発検出 (recurrence ≥ 3)
+        if category == "mistakes":
+            try:
+                recurrence = int(str(fm.get("recurrence", "1")))
+            except ValueError:
+                recurrence = 1
+            if recurrence >= 3:
+                last_hit = str(fm.get("last_hit", "")).strip().strip('"').strip("'")
+                recurrents.append((f"{category}/{name}", recurrence, last_hit))
 
         desc = fm.get("description", "")
         if isinstance(desc, str):
@@ -179,6 +190,14 @@ def main() -> int:
     if promotions:
         for n, rc, d in promotions:
             print(f"- {n} (references {rc} / decay: {d})")
+    else:
+        print("_該当なし。_")
+    print()
+
+    print("## 再発罠 (recurrence ≥ 3: 根本対策候補)")
+    if recurrents:
+        for n, r, lh in sorted(recurrents, key=lambda x: -x[1]):
+            print(f"- {n} (recurrence {r} / last_hit {lh})")
     else:
         print("_該当なし。_")
     print()
