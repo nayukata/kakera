@@ -1,6 +1,7 @@
 ---
+name: kakera-search
 description: kakera Vault の蓄積知識を全文検索 + Claude が関連度評価して要約する。「あの判断どこだっけ」「以前似た問題を扱った」の救済。ユーザーが「kakera を検索」「過去の判断を引きたい」と発言した時、または引数 query が与えられた時に発動。
-argument-hint: <検索クエリ> -- 省略時はユーザーに尋ねる
+argument-hint: "<検索クエリ> -- 省略時はユーザーに尋ねる"
 ---
 
 # kakera-search

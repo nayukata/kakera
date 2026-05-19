@@ -1,5 +1,6 @@
 ---
-description: kakera の初回セットアップ。Vault パス / Obsidian 連携 / 再会スタイル (明示頻度) を対話で決め、$KAKERA_HOME/.kakera-config.toml に保存する。MEMORY.md とカテゴリ hub の雛形が無ければ作成する。plugin インストール直後の最初の入口。
+name: kakera-init
+description: kakera の初回セットアップ。Vault パス / Obsidian 連携 / 再会スタイル (明示頻度) / コーチモード on-off を対話で決め、$KAKERA_HOME/.kakera-config.toml に保存する。MEMORY.md とカテゴリ hub の雛形が無ければ作成する。plugin インストール直後の最初の入口。
 ---
 
 # kakera-init
@@ -25,7 +26,8 @@ kakera plugin の初回セットアップを対話で完了する。
    - yes なら graph 設定 (フォルダ別カラーグループ等) の `.obsidian/graph.json` 雛形を提案
    - no なら何もしない
 3. **再会スタイル**: `explicit` (明示多め) / `implicit` (明示少なめ、default)
-4. **環境変数の永続化方法**: `~/.zshrc` / `~/.bashrc` / 手動 (`echo` するだけ)
+4. **コーチモード**: on / off (default on)。Claude が対話中の理解の怪しさを検出して問いかけるかどうか。後で `/kakera-coach` でも切り替え可能
+5. **環境変数の永続化方法**: `~/.zshrc` / `~/.bashrc` / 手動 (`echo` するだけ)
 
 ### 3. 設定ファイル書き込み
 
@@ -40,6 +42,10 @@ style = "implicit"  # or "explicit"
 
 [obsidian]
 enabled = false  # or true
+
+[study]
+enabled = true   # コーチモード on/off
+off_streak = 0   # 連続 off カウント
 ```
 
 ### 4. 雛形作成 (既存なら触らない)
@@ -64,7 +70,7 @@ plugin 経由なら自動。`install.sh` 経由なら手動追加の指示を提
 ### 7. 完了報告
 
 - セットアップ完了内容を 5 行以内で要約
-- 次のアクション「会話の中で『これメモ』と言うだけで蓄積される。明示的に貯めたい時は `/kakera-review`、検索は `/kakera-search`」を提示
+- 次のアクション「会話の中で『これメモ』と言うだけで蓄積される。検索は `/kakera-search`、保留した問いを解くなら `/kakera-study`、メンテは `/kakera-review`、コーチモード切替は `/kakera-coach`」を提示
 
 ## 禁止事項
 
