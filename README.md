@@ -246,6 +246,7 @@ install.sh が終わると「次のステップ」を出すので、それに従
 $KAKERA_HOME/
 ├── MEMORY.md            # 目次
 ├── INDEX.md             # 全ノート 1 行サマリ (検索の入口、自動生成)
+├── RECENT.md            # 直近 30 件の新着リスト (ブラウズ用、自動生成)
 ├── REVIEW.md            # 復習キュー (週次自動生成)
 ├── .kakera-config.toml  # 設定ファイル
 └── knowledge/

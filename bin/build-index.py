@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""kakera Vault の全ノートサマリ INDEX.md を生成する。
+"""kakera Vault の検索/ブラウズ用インデックスを生成する。
 
-検索時の入口として `/kakera-search` が最初に Read するもの。
-1 ノート 1 行に圧縮することで、Vault が数百件規模になっても
-コンテキスト消費を抑えて関連候補を絞れる。
+- `INDEX.md` (機械向け): 全ノートを 1 行サマリにしてカテゴリ別に並べる。`/kakera-search` が先頭で Read する
+- `RECENT.md` (人間向け): 直近の活動 (latest reference または created) の新しい順にトップ N 件
 
-Vault パスは KAKERA_HOME 環境変数で解決。
+両方を 1 回の走査で生成。Vault パスは KAKERA_HOME 環境変数で解決。
 """
 
 from __future__ import annotations
@@ -18,7 +17,9 @@ from pathlib import Path
 
 VAULT = Path(os.environ.get("KAKERA_HOME", str(Path.home() / "kakera")))
 KNOWLEDGE = VAULT / "knowledge"
-OUTPUT = VAULT / "INDEX.md"
+INDEX_PATH = VAULT / "INDEX.md"
+RECENT_PATH = VAULT / "RECENT.md"
+RECENT_LIMIT = 30
 
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.DOTALL)
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -116,18 +117,12 @@ def truncate(text: str, n: int) -> str:
     return text[:n] + ("…" if len(text) > n else "")
 
 
-def main() -> int:
-    if not KNOWLEDGE.exists():
-        print(f"knowledge dir not found: {KNOWLEDGE}", file=sys.stderr)
-        return 1
-
-    by_cat = collect_by_category()
-    today = date.today().isoformat()
+def write_index(by_cat: dict, today_str: str) -> int:
     lines = [
         "---",
         "name: INDEX",
         "description: 全ノートのサマリ。検索時の入口。自動生成。",
-        f"updated: {today}",
+        f"updated: {today_str}",
         "---",
         "",
         "# kakera INDEX",
@@ -146,7 +141,7 @@ def main() -> int:
         lines.append("")
         lines.append("| ノート | 重要度 | decay | 概要 |")
         lines.append("|---|---|---|---|")
-        for name, fm, rel in items:
+        for name, fm, _rel in items:
             importance = str(fm.get("importance", "?"))
             decay = str(fm.get("decay", "?"))
             desc = truncate(str(fm.get("description", "")), 60)
@@ -155,8 +150,53 @@ def main() -> int:
         lines.append("")
 
     lines.append(f"_対象ノート: {total} 件_")
-    OUTPUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"Wrote {OUTPUT} ({total} notes)")
+    INDEX_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return total
+
+
+def write_recent(by_cat: dict, today_str: str) -> int:
+    # 全ノートをフラットにして latest_ref or created でソート
+    flat: list[tuple[date, str, str, dict]] = []  # (sort_date, name, category, fm)
+    for cat, items in by_cat.items():
+        for name, fm, _rel in items:
+            d = latest_ref(fm) or date(1970, 1, 1)
+            flat.append((d, name, cat, fm))
+    flat.sort(key=lambda x: (-x[0].toordinal(), x[1]))
+
+    lines = [
+        "---",
+        "name: RECENT",
+        "description: 直近に追加 / 更新されたノート 上位 30 件。ブラウズ用、自動生成。",
+        f"updated: {today_str}",
+        "---",
+        "",
+        "# 直近のメモ",
+        "",
+        "最後に触れた (新規作成 or references 追記) 順。新着の見落とし防止。",
+        "",
+        "| 日付 | ノート | カテゴリ | 概要 |",
+        "|---|---|---|---|",
+    ]
+
+    for d, name, cat, fm in flat[:RECENT_LIMIT]:
+        date_str = d.isoformat() if d.year > 1970 else "?"
+        desc = truncate(str(fm.get("description", "")), 60)
+        lines.append(f"| {date_str} | [[{name}]] | {cat} | {desc} |")
+
+    RECENT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return min(RECENT_LIMIT, len(flat))
+
+
+def main() -> int:
+    if not KNOWLEDGE.exists():
+        print(f"knowledge dir not found: {KNOWLEDGE}", file=sys.stderr)
+        return 1
+
+    by_cat = collect_by_category()
+    today_str = date.today().isoformat()
+    n_index = write_index(by_cat, today_str)
+    n_recent = write_recent(by_cat, today_str)
+    print(f"Wrote {INDEX_PATH} ({n_index} notes), {RECENT_PATH} ({n_recent} entries)")
     return 0
 
 

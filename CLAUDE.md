@@ -30,6 +30,7 @@ typo 修正やスタイル変更などはスキップ。
 3. 必要なら該当ノート本文を Read
 
 これでファイル数が増えても context 消費を抑えられる。INDEX は `bin/build-index.py` が SessionEnd hook で自動更新する。
+同じ走査でユーザー向けの `RECENT.md` (直近 30 件) も生成される (Claude が積極的に Read する用途ではない)。
 
 ## session 開始時の受動再会
 
