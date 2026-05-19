@@ -1,0 +1,7 @@
+.DS_Store
+*.log
+.audit-*.md
+.review-*.flag
+node_modules/
+__pycache__/
+*.pyc

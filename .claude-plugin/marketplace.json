@@ -1,0 +1,23 @@
+{
+  "name": "kakera",
+  "owner": {
+    "name": "nayukata"
+  },
+  "metadata": {
+    "description": "Claude Code 向けの自己学習プラットフォーム。会話中の学びを自然言語で蓄積し、次の対話で自然に再会する。",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "kakera",
+      "description": "Claude Code ヘビーユーザー向けの長期記憶 / 自己学習システム。「これメモ」「覚えといて」等の自然言語で蓄積、session 跨ぎで関連知見を自動再会。",
+      "source": "./",
+      "strict": true,
+      "skills": [
+        "./skills/kakera-init",
+        "./skills/kakera-search",
+        "./skills/kakera-review"
+      ]
+    }
+  ]
+}

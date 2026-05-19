@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+"""kakera Vault の月次監査スクリプト。
+
+検出項目:
+1. Orphan: 他のノートから wikilink で参照されていないメンバーノート (hub からも)
+2. Stale: decay 期限を超えて references が更新されていないノート
+3. Promotion: references が 3 件以上だが decay が permanent でないノート
+4. Duplicates: 同一カテゴリ内で description が酷似するノート
+
+出力: stdout に Markdown レポート。Vault パスは KAKERA_HOME 環境変数で解決。
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import sys
+from collections import defaultdict
+from datetime import date, datetime
+from pathlib import Path
+
+VAULT = Path(os.environ.get("KAKERA_HOME", str(Path.home() / "kakera")))
+KNOWLEDGE = VAULT / "knowledge"
+
+DECAY_DAYS: dict[str, int | None] = {
+    "1month": 30,
+    "3months": 90,
+    "6months": 180,
+    "permanent": None,
+}
+
+FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.DOTALL)
+DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
+HUB_NAMES = {"フィードバック", "設計", "ユーザー", "プロジェクト", "意思決定", "失敗学習", "問い"}
+
+
+def parse_frontmatter(text: str) -> dict[str, str | list[str]]:
+    m = FRONTMATTER_RE.match(text)
+    if not m:
+        return {}
+    fm: dict[str, str | list[str]] = {}
+    current_list_key: str | None = None
+    for line in m.group(1).splitlines():
+        if line.startswith("  -"):
+            if current_list_key:
+                fm.setdefault(current_list_key, []).append(line[3:].strip())  # type: ignore[union-attr]
+            continue
+        current_list_key = None
+        if ":" not in line:
+            continue
+        key, _, val = line.partition(":")
+        key = key.strip()
+        val = val.strip()
+        if val == "":
+            current_list_key = key
+        else:
+            fm[key] = val
+    return fm
+
+
+def most_recent_ref(fm: dict[str, str | list[str]]) -> date | None:
+    refs = fm.get("references")
+    candidates: list[date] = []
+    if isinstance(refs, list):
+        for r in refs:
+            match = DATE_RE.search(r)
+            if match:
+                try:
+                    candidates.append(datetime.strptime(match.group(0), "%Y-%m-%d").date())
+                except ValueError:
+                    pass
+    created = fm.get("created")
+    if isinstance(created, str):
+        match = DATE_RE.search(created)
+        if match:
+            try:
+                candidates.append(datetime.strptime(match.group(0), "%Y-%m-%d").date())
+            except ValueError:
+                pass
+    return max(candidates) if candidates else None
+
+
+def reference_count(fm: dict[str, str | list[str]]) -> int:
+    refs = fm.get("references")
+    if isinstance(refs, list):
+        return len(refs)
+    return 0
+
+
+def collect_inbound_links() -> dict[str, set[str]]:
+    inbound: dict[str, set[str]] = defaultdict(set)
+    for md in KNOWLEDGE.glob("**/*.md"):
+        text = md.read_text(encoding="utf-8")
+        for target in WIKILINK_RE.findall(text):
+            if target == md.stem:
+                continue
+            inbound[target].add(md.stem)
+    return inbound
+
+
+def description_similarity(a: str, b: str) -> float:
+    if not a or not b:
+        return 0.0
+    ta = set(a.replace("。", " ").split())
+    tb = set(b.replace("。", " ").split())
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / len(ta | tb)
+
+
+def main() -> int:
+    if not KNOWLEDGE.exists():
+        print(f"knowledge dir not found: {KNOWLEDGE}", file=sys.stderr)
+        return 1
+
+    today = date.today()
+    inbound = collect_inbound_links()
+
+    orphans: list[str] = []
+    stales: list[tuple[str, str, int]] = []
+    promotions: list[tuple[str, int, str]] = []
+    duplicates: list[tuple[str, str, float]] = []
+    by_category: dict[str, list[tuple[str, str]]] = defaultdict(list)
+
+    for md in sorted(KNOWLEDGE.glob("**/*.md")):
+        name = md.stem
+        fm = parse_frontmatter(md.read_text(encoding="utf-8"))
+        category = md.parent.name
+
+        if name not in HUB_NAMES and name not in inbound:
+            orphans.append(f"{category}/{name}")
+
+        decay = fm.get("decay", "permanent")
+        if isinstance(decay, str) and decay in DECAY_DAYS:
+            max_days = DECAY_DAYS[decay]
+            if max_days is not None:
+                recent = most_recent_ref(fm)
+                if recent and (today - recent).days > max_days:
+                    stales.append((f"{category}/{name}", decay, (today - recent).days))
+
+        rc = reference_count(fm)
+        if rc >= 3 and decay != "permanent":
+            promotions.append((f"{category}/{name}", rc, str(decay)))
+
+        desc = fm.get("description", "")
+        if isinstance(desc, str):
+            by_category[category].append((name, desc))
+
+    for category, items in by_category.items():
+        for i, (a_name, a_desc) in enumerate(items):
+            for b_name, b_desc in items[i + 1 :]:
+                sim = description_similarity(a_desc, b_desc)
+                if sim > 0.6:
+                    duplicates.append((f"{category}/{a_name}", f"{category}/{b_name}", sim))
+
+    print(f"# kakera Vault Audit ({today.isoformat()})")
+    print()
+    print(f"対象ノート: {sum(1 for _ in KNOWLEDGE.glob('**/*.md'))} 件")
+    print()
+
+    print("## Orphan (どこからもリンクされていないノート)")
+    if orphans:
+        for o in orphans:
+            print(f"- {o}")
+    else:
+        print("_該当なし。_")
+    print()
+
+    print("## Stale (decay 期限超過)")
+    if stales:
+        for n, d, days in sorted(stales, key=lambda x: -x[2]):
+            print(f"- {n} ({d} / 最終 reference から {days} 日経過)")
+    else:
+        print("_該当なし。_")
+    print()
+
+    print("## Promotion 候補 (references が 3 件以上だが decay が permanent でない)")
+    if promotions:
+        for n, rc, d in promotions:
+            print(f"- {n} (references {rc} / decay: {d})")
+    else:
+        print("_該当なし。_")
+    print()
+
+    print("## Duplicate 候補 (description が酷似)")
+    if duplicates:
+        for a, b, sim in sorted(duplicates, key=lambda x: -x[2]):
+            print(f"- {a} <-> {b} (sim={sim:.2f})")
+    else:
+        print("_該当なし。_")
+    print()
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
