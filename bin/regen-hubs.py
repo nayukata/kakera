@@ -119,7 +119,9 @@ def collect_for_parent_hub(category: str, hub_name: str, today: date) -> tuple[l
     if not folder.exists():
         return [], []
 
-    for md in folder.glob("*.md"):
+    # サブ hub は同名サブフォルダ内に置く運用 (例: design/Hookパターン/Hookパターン.md)。
+    # 親 hub 直下の .md は parent hub 自身か直結 member、サブフォルダ内は sub-hub + その member。
+    for md in folder.rglob("*.md"):
         if md.stem == hub_name:
             continue
         text = md.read_text(encoding="utf-8")
@@ -127,7 +129,7 @@ def collect_for_parent_hub(category: str, hub_name: str, today: date) -> tuple[l
         if fm.get("type") == "sub-hub":
             sub_hubs.append((md.stem, fm))
             claimed |= member_links_in_section(text)
-        else:
+        elif md.parent == folder:
             flat_members.append((md.stem, fm))
 
     direct_members = [(n, fm) for n, fm in flat_members if n not in claimed]
