@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""kakera 自己学習用の復習キュー生成。
+"""kakera Vault のメンテ用キュー生成。
 
 Top 10 を選んで `$KAKERA_HOME/REVIEW.md` に書き出す。
 選定基準 (優先順):
-1. questions/ 配下の未解決 (type: question)
-2. stale (decay 期限を超えて references 更新なし)
-3. promotion 候補 (references 3 件以上だが decay != permanent)
+1. stale (decay 期限を超えて references 更新なし)
+2. promotion 候補 (references 3 件以上だが decay != permanent)
 
-ユーザーが REVIEW.md を開くだけで「触るべき場所」が分かる入口。
+未解決の問い (questions/) はここでは扱わない。
+学習対話は /kakera-study が担当する (役割分離)。
 """
 
 from __future__ import annotations
@@ -81,23 +81,20 @@ def is_stale(fm: dict, today: date) -> bool:
 
 def collect():
     today = date.today()
-    questions, stale, promotion = [], [], []
+    stale, promotion = [], []
     for md in KNOWLEDGE.rglob("*.md"):
         text = md.read_text(encoding="utf-8")
         fm = parse_frontmatter(text)
-        if fm.get("type") in ("hub", "sub-hub"):
+        if fm.get("type") in ("hub", "sub-hub", "question"):
             continue
         rel = md.relative_to(VAULT).as_posix()
         desc = fm.get("description", "")
-        if fm.get("type") == "question":
-            questions.append((md.stem, rel, desc))
-            continue
         if is_stale(fm, today):
             stale.append((md.stem, rel, desc))
         refs = fm.get("references", [])
         if isinstance(refs, list) and len(refs) >= 3 and fm.get("decay") != "permanent":
             promotion.append((md.stem, rel, desc))
-    return questions, stale, promotion
+    return stale, promotion
 
 
 def render():
@@ -105,18 +102,18 @@ def render():
         print(f"knowledge dir not found: {KNOWLEDGE}", file=sys.stderr)
         return 1
 
-    questions, stale, promotion = collect()
+    stale, promotion = collect()
     today = date.today().isoformat()
     lines = [
         "---",
         "name: REVIEW",
-        "description: 自己学習用の復習キュー。週次自動生成。",
+        "description: Vault メンテ用のキュー。週次自動生成。問いの再訪は /kakera-study が担当。",
         f"updated: {today}",
         "---",
         "",
-        "# 復習キュー",
+        "# メンテキュー",
         "",
-        "自動生成。上から順に「触る」だけで知識が育つ設計。",
+        "古いメモの更新候補と、permanent 昇格候補。学習目的の「保留した問い」は `/kakera-study` 側で扱う。",
         "",
     ]
 
@@ -133,15 +130,13 @@ def render():
                 lines.append(f"- [[{name}]] — {desc_short}")
         lines.append("")
 
-    section("未解決の問い", questions, 10,
-            "8 割止めの疑問。再訪して解決し通常ノートへ昇格させる。")
     section("鮮度切れ", stale, 10,
-            "decay 期限超過。現状と照合し更新 or 削除。")
+            "decay 期限超過。現状と照合して更新または削除する。")
     section("昇格候補", promotion, 10,
             "references 3 件以上。decay: permanent に格上げする。")
 
     OUTPUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"Wrote {OUTPUT} (questions={len(questions)}, stale={len(stale)}, promotion={len(promotion)})")
+    print(f"Wrote {OUTPUT} (stale={len(stale)}, promotion={len(promotion)})")
     return 0
 
 

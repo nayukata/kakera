@@ -16,6 +16,7 @@
       "skills": [
         "./skills/kakera-init",
         "./skills/kakera-search",
+        "./skills/kakera-study",
         "./skills/kakera-review"
       ]
     }
