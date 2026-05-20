@@ -38,7 +38,7 @@ IMPORTANCE_WEIGHT: dict[str, int] = {"high": 3, "medium": 2, "low": 1}
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.DOTALL)
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 MEMBER_SECTION_RE = re.compile(
-    r"(## メンバー\s*\n)(.*?)(\n##|\n戻る:|\n*$)",
+    r"(## メンバー\s*\n)(.*?)(\n##(?!#)|\n戻る:|\n*$)",
     re.DOTALL,
 )
 WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
