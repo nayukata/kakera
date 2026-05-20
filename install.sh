@@ -137,7 +137,13 @@ else
   warn ".kakera-config.toml already exists (skipped)"
 fi
 
-# CLAUDE.md (kakera section) の merge 案内
+# エージェント検出
+HAS_CLAUDE=0; HAS_CODEX=0; HAS_GEMINI=0; HAS_CURSOR=0
+[ -d "$HOME/.claude" ] && HAS_CLAUDE=1
+[ -d "$HOME/.codex" ] && HAS_CODEX=1
+[ -d "$HOME/.gemini" ] && HAS_GEMINI=1
+[ -d "$HOME/.cursor" ] && HAS_CURSOR=1
+
 echo
 bold "次のステップ"
 echo
@@ -145,22 +151,63 @@ cat <<EOF
 1. 環境変数を永続化:
    echo 'export KAKERA_HOME="$KAKERA_HOME"' >> ~/.zshrc   # or ~/.bashrc
 
-2. SessionEnd hook を Claude Code に登録:
-   ~/.claude/settings.json の hooks.SessionEnd に以下を追加
-   {
-     "matcher": "*",
-     "hooks": [{
-       "type": "command",
-       "command": "$REPO_DIR/hooks/on-session-end.sh"
-     }]
-   }
+2. agent rule (AGENTS.md / CLAUDE.md / GEMINI.md は同一ファイルへの symlink) を取り込み:
+   この repo の AGENTS.md を、お使いのエージェントが読むパスへ配置してください。
+   - Claude Code: ~/.claude/CLAUDE.md に追記 (marketplace 経由なら plugin が自動 provide)
+   - Codex: ~/.codex/AGENTS.md またはプロジェクトルートの AGENTS.md
+   - Cursor: プロジェクトルートの AGENTS.md (Cursor は AGENTS.md 規約サポート)
+   - Gemini CLI: ~/.gemini/GEMINI.md またはプロジェクトルートの GEMINI.md
+   - skill 本体を他エージェントに横展開する場合: \`npx skills add nayukata/kakera\`
+EOF
 
-3. CLAUDE.md の kakera セクションを ~/.claude/CLAUDE.md に取り込む:
-   この repo の CLAUDE.md を読み、ご自身の ~/.claude/CLAUDE.md に追記してください。
-   (marketplace 経由なら plugin が自動 provide します)
+if [ "$HAS_CLAUDE" -eq 1 ]; then
+cat <<EOF
 
-4. 初回セットアップ skill を Claude Code で実行:
-   /kakera-init
+3a. [Claude Code] SessionEnd hook を登録:
+    ~/.claude/settings.json の hooks.SessionEnd に以下を追加
+    {
+      "matcher": "*",
+      "hooks": [{
+        "type": "command",
+        "command": "$REPO_DIR/hooks/on-session-end.sh"
+      }]
+    }
+EOF
+fi
+
+if [ "$HAS_CODEX" -eq 1 ]; then
+cat <<EOF
+
+3b. [Codex] Stop hook を登録 (~/.codex/config.toml に追記):
+    [[hooks.Stop]]
+    command = "$REPO_DIR/hooks/codex/on-stop.sh"
+
+    注意: Codex には SessionEnd 相当が無いため Stop (ターン終了) で代替します。
+    毎ターン発火するので debounce (default 300 秒) を内部で噛ませています。
+    変更したい場合は KAKERA_CODEX_DEBOUNCE=600 のように上書きしてください。
+EOF
+fi
+
+if [ "$HAS_CURSOR" -eq 1 ]; then
+cat <<EOF
+
+3c. [Cursor] sessionEnd hook を登録 (~/.cursor/hooks.json に追記):
+    {
+      "version": 1,
+      "hooks": {
+        "sessionEnd": [{ "command": "$REPO_DIR/hooks/cursor/on-session-end.sh" }]
+      }
+    }
+
+    注意: Cursor 自体には非対話 prompt CLI が無いため、抽出には claude / codex のどちらかが PATH に必要です。
+    指定したい場合は KAKERA_AGENT_CMD=/path/to/cli KAKERA_AGENT_SUBCMD=-p のように上書きしてください。
+EOF
+fi
+
+cat <<EOF
+
+4. 初回セットアップ skill を実行:
+   /kakera-init   (Claude Code / Codex 共通)
 
 完了です。会話の中で「これメモ」「同じミスしたくない」等と言うだけで蓄積されます。
 EOF

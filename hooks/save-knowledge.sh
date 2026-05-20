@@ -1,14 +1,17 @@
 #!/bin/bash
-# 知見抽出の実処理。on-session-end.sh から nohup で呼ばれる。
-# 引数: claude_cmd kakera_home transcript_path session_id log_path [timeout_seconds]
+# 知見抽出の実処理。on-session-end.sh (Claude Code) / codex/on-stop.sh (Codex) から nohup で呼ばれる。
+# 引数: agent_cmd kakera_home transcript_path session_id log_path [timeout_seconds] [agent_subcmd]
+#   agent_cmd     : エージェント CLI のフルパス (例: /usr/local/bin/claude, /usr/local/bin/codex)
+#   agent_subcmd  : prompt を渡すサブコマンド / フラグ (default "-p", codex は "exec")
 set -u
 
-CLAUDE_CMD="$1"
+AGENT_CMD="$1"
 KAKERA_HOME="$2"
 TRANSCRIPT_PATH="$3"
 SESSION_ID="$4"
 LOG="$5"
 TIMEOUT="${6:-600}"
+AGENT_SUBCMD="${7:--p}"
 
 export KAKERA_HOME
 
@@ -33,26 +36,34 @@ else
 fi
 echo "[$(date)] Extracted transcript text: ${BYTES}B${TRUNCATED}" >> "$LOG"
 
-# CLAUDE.md (kakera section) のルールに従って抽出するよう促す。
-# 具体的なプロトコル (Surprise 判定、サブ hub 振り分け等) はインストール時に
-# ~/.claude/CLAUDE.md へ追記された kakera セクションを Claude が読む。
+# kakera プロトコル (Surprise 判定 / サブ hub / frontmatter 必須) はエージェントの
+# agent rule (Claude Code なら CLAUDE.md、Codex なら AGENTS.md) に既に読み込まれている前提。
 PROMPT="あなたは kakera の知見抽出エージェントです。
-下記 Claude Code セッション transcript (user / assistant の text のみ) を読み、~/.claude/CLAUDE.md の「kakera」セクションのプロトコルに従って、新しく学べた構造化知見だけを ${KAKERA_HOME}/knowledge/ 配下に保存してください。
+下記セッション transcript (user / assistant の text のみ) を読み、kakera プロトコルに従って、新しく学べた構造化知見だけを ${KAKERA_HOME}/knowledge/ 配下に保存してください。
 
 カテゴリ: decisions / mistakes / feedback / design / project / user / questions
 
-抽出ルールはすべて ~/.claude/CLAUDE.md に書かれています。
+抽出ルールはあなたの agent rule (CLAUDE.md / AGENTS.md) の「kakera」セクションに書かれています。
 - Surprise 3 段判定 (整合 / 補強 / 矛盾) でファイル新規作成 / Edit / references 追記を選ぶ
 - サブ hub への振り分け
 - frontmatter (name / description / type / importance / created / decay / references) 必須
 - 価値ある知見がない場合は何も書かない
+
+【必須】design/ への保存前に固有名詞チェックを実行:
+本文に「特定の製品 / 案件 / ツール / ライブラリ / ファイルパス / 関数名」が出現する場合は design/ には置かず、必ず project/<name>/ に置く。判断の問い 3 つ (別案件で意味通るか / 固有名消して骨子残るか / 一般語に置換できるか) を内部で確認し、1 つでも no なら project/。再発防止: mistakes/2026-05-20_design配下にプロジェクト固有知識を混入.md 参照。
+
+【project/<name>/ フォルダが無い場合】
+- 既存フォルダに合致しなくても design/ に逃さない
+- 本文の最有力固有名 (頭字語 / 製品名 / リポジトリ名 / 拡張子付きファイル名の親概念) から folder 名を snake_case で決め、project/<name>/ を新規作成
+- 同時にサブ hub note (type: sub-hub, 戻る: [[プロジェクト]]) も作成し ## メンバー を初期化
+- 命名に確信が無くても保存を優先。後の改名は cheap、design/ に紛れる方が回収コスト高い
 
 完了後、書いた/更新したファイル一覧と Surprise 判定を出力。何も書かなかった場合は「no knowledge to save」とだけ出力。
 
 セッション ID: $SESSION_ID
 Vault: $KAKERA_HOME"
 
-printf '%s' "$EXTRACTED" | "$CLAUDE_CMD" -p "$PROMPT" >> "$LOG" 2>&1 &
+printf '%s' "$EXTRACTED" | "$AGENT_CMD" "$AGENT_SUBCMD" "$PROMPT" >> "$LOG" 2>&1 &
 SAVE_PID=$!
 
 (sleep "$TIMEOUT" && kill "$SAVE_PID" 2>/dev/null && echo "[$(date)] TIMEOUT: killed save (pid=$SAVE_PID)" >> "$LOG") &

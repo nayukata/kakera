@@ -123,11 +123,42 @@ def main() -> int:
     duplicates: list[tuple[str, str, float]] = []
     recurrents: list[tuple[str, int, str]] = []  # (name, recurrence, last_hit)
     by_category: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    misclassified_design: list[tuple[str, list[str]]] = []  # (name, matched signals)
+
+    # design/ にあるノートが固有名詞シグナルを含んでいたら project/<name>/ への誤分類候補とする。
+    # 再発防止: mistakes/2026-05-20_design配下にプロジェクト固有知識を混入.md
+    #
+    # 動的シグナル (vault 横断で収集):
+    # 1. project/<name>/ フォルダ名 (各利用者の vault 固有のプロジェクト名)
+    # 2. backtick で囲まれた拡張子付き識別子 (`xxx.ts` `foo-bar.sh` 等の固有ファイル名)
+    # 3. 3 字以上の連続英大文字頭字語 (ATSURAE / AWS / SaaS 等)
+    project_dir = KNOWLEDGE / "project"
+    project_names: list[str] = []
+    if project_dir.exists():
+        project_names = [p.name for p in project_dir.iterdir() if p.is_dir()]
+    project_name_re = (
+        re.compile("|".join(re.escape(n) for n in project_names), re.IGNORECASE)
+        if project_names
+        else None
+    )
+    BACKTICK_FILE_RE = re.compile(r"`([A-Za-z0-9_./\-]+\.[a-zA-Z]{1,5})`")
+    ACRONYM_RE = re.compile(r"\b[A-Z]{3,}\b")
 
     for md in sorted(KNOWLEDGE.glob("**/*.md")):
         name = md.stem
-        fm = parse_frontmatter(md.read_text(encoding="utf-8"))
+        body = md.read_text(encoding="utf-8")
+        fm = parse_frontmatter(body)
         category = md.parent.name
+
+        # design/ 直下 (サブ hub 配下も含む) に固有名詞シグナルがあれば誤分類候補
+        if "design" in md.parts and name not in HUB_NAMES:
+            matched: set[str] = set()
+            if project_name_re:
+                matched.update(m.group(0) for m in project_name_re.finditer(body))
+            matched.update(m.group(0) for m in BACKTICK_FILE_RE.finditer(body))
+            matched.update(m.group(0) for m in ACRONYM_RE.finditer(body))
+            if matched:
+                misclassified_design.append((f"{category}/{name}", sorted(matched)))
 
         if name not in HUB_NAMES and name not in inbound:
             orphans.append(f"{category}/{name}")
@@ -198,6 +229,14 @@ def main() -> int:
     if recurrents:
         for n, r, lh in sorted(recurrents, key=lambda x: -x[1]):
             print(f"- {n} (recurrence {r} / last_hit {lh})")
+    else:
+        print("_該当なし。_")
+    print()
+
+    print("## design/ 誤分類候補 (固有名詞を含むノート → project/<name>/ 検討)")
+    if misclassified_design:
+        for n, sigs in misclassified_design:
+            print(f"- {n} (検出: {', '.join(sigs)})")
     else:
         print("_該当なし。_")
     print()

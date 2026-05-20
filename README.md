@@ -230,7 +230,7 @@ RLS のポリシー無し挙動を整理したい
 
 更新は `/plugin marketplace update kakera` してから `/plugin update kakera`。
 
-### B. install.sh 経由
+### B. install.sh 経由 (Claude Code 以外も対応)
 
 ```sh
 git clone https://github.com/nayukata/kakera.git
@@ -238,7 +238,45 @@ cd kakera
 ./install.sh
 ```
 
-install.sh が終わると「次のステップ」を出すので、それに従う。
+install.sh が `~/.claude` / `~/.codex` を検出して、それぞれに合う hook 登録手順を案内する。
+
+### C. Codex で使う場合
+
+Codex は Claude Code 互換の skill 仕様と AGENTS.md (= CLAUDE.md と同内容) を読む。
+B の install.sh が出す案内に従って `~/.codex/config.toml` に Stop hook を登録するか、手動で以下を追記する。
+
+```toml
+[[hooks.Stop]]
+command = "/path/to/kakera/hooks/codex/on-stop.sh"
+```
+
+制約
+
+- Codex には SessionEnd 相当が無いため Stop (ターン終了) で代替している
+- Stop は毎ターン発火するので内部で debounce (default 300 秒) を噛ませている
+- 抽出は `codex exec` を経由する (Claude Code 版は `claude -p`)
+
+### D. その他のエージェント (Cursor / Gemini CLI / Cline / Codex 等)
+
+skill 本体は `skills` CLI (vercel-labs/skills) 経由で配布できる。30 以上のエージェントを横断対応。
+
+```sh
+npx skills add nayukata/kakera
+```
+
+エージェント別の skill 配置先
+
+| エージェント | グローバル | プロジェクト |
+|---|---|---|
+| Claude Code | `~/.claude/skills/` | `.claude/skills/` |
+| Codex | `~/.codex/skills/` | `.agents/skills/` |
+| Cursor | `~/.cursor/skills/` | `.agents/skills/` |
+| Gemini CLI | `~/.gemini/skills/` | `.agents/skills/` |
+| Cline | エージェント側設定 | `.agents/skills/` |
+
+agent rule は `AGENTS.md` (= `CLAUDE.md`) を各エージェントの規約パスへ配置するかルートに置けば多くのエージェントが拾う。
+
+自動抽出 hook は Claude Code (`SessionEnd`) / Codex (`Stop`) / Cursor (`sessionEnd`) に対応。それ以外は skill (`/kakera-search` `/kakera-study` 等) の明示呼び出しで運用する。
 
 ## ディレクトリ構造
 
@@ -281,11 +319,17 @@ $KAKERA_HOME/
 
 ## hook
 
-`hooks/on-session-end.sh` を Claude Code の SessionEnd hook に登録すると、session が終わるたびに Claude が transcript を読んで自動抽出する (バックグラウンドで動く)。
+| エージェント | hook | 発火タイミング | 抽出 CLI |
+|---|---|---|---|
+| Claude Code | `hooks/on-session-end.sh` | SessionEnd (session 終了時) | `claude -p` |
+| Codex | `hooks/codex/on-stop.sh` | Stop (ターン終了時、debounce 付き) | `codex exec` |
+| Cursor | `hooks/cursor/on-session-end.sh` | sessionEnd | `claude -p` または `codex exec` (PATH から検出) |
+
+session / ターンが終わるとエージェント CLI を非同期で起動し、transcript を読んで自動抽出する。Cursor 自体には非対話 prompt CLI が無いため、claude / codex のいずれかが必要。`KAKERA_AGENT_CMD` で明示指定も可能。
 
 ## 依存
 
-- Claude Code CLI (`claude`)
+- エージェント CLI (`claude` or `codex`)
 - `jq`
 - `python3`
 - `rg` (検索用、無くても動くけど遅い)
