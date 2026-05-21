@@ -21,16 +21,38 @@ Vault パス: 環境変数 `$KAKERA_HOME` (default `~/kakera`)。
 
 ## 検索トリガー (Claude が記憶を引く)
 
-過去参照 (「前に」「以前」「あの時」「前回」) や設計判断議論では、提案前に knowledge を検索する。
-typo 修正やスタイル変更などはスキップ。
+「関連しそうなら検索」では発火しない。dev flow の**観測可能な瞬間**を発火点にする。
 
-検索手順
-1. まず `$KAKERA_HOME/INDEX.md` (全ノート 1 行サマリ) を Read
-2. 関連候補を description ベースで絞り込む
-3. 必要なら該当ノート本文を Read
+### dev flow と recall point
 
-これでファイル数が増えても context 消費を抑えられる。INDEX は `bin/build-index.py` が SessionEnd hook で自動更新する。
-同じ走査でユーザー向けの `RECENT.md` (直近 30 件) も生成される (Claude が積極的に Read する用途ではない)。
+| 瞬間 | 観測シグナル | アクション |
+|---|---|---|
+| prompt 受領直後 | 固有名詞 (project 名 / file path / エラー語 / 技術名) を含む | `$KAKERA_HOME/INDEX.md` を Read → keyword で絞る |
+| 編集対象ファイル確定時 | これから Read/Edit する path / ドメイン | INDEX の `project/` `mistakes/` を path keyword で確認 |
+| ユーザー訂正/否定を受けた時 | 「違う」「そうじゃない」「また」「前にも」 | INDEX の `feedback/` `mistakes/` を確認してから返答 |
+| 設計判断の前 | 「どう設計するか」「どっちが良いか」 / 新規ファイル構成を提案する直前 | INDEX の `design/` `decisions/` を確認 |
+| エラー遭遇時 | スタックトレース / エラーメッセージ | エラー語で `knowledge/mistakes/` を grep |
+
+スキップしてよい場面 typo 修正、純粋な表示文言変更、明らかに 1 行で終わる作業。
+
+### 検索手順
+
+1. `$KAKERA_HOME/INDEX.md` (全ノート 1 行サマリ) を Read
+2. 候補が出たら本文を Read
+3. ヒット 0 件でも「INDEX 確認済み」を 1 行残す (例: `kakera: 該当ノートなし`)。沈黙すると検索したか事後に判別不能
+
+INDEX は `bin/build-index.py` が SessionEnd hook で自動更新。ユーザー向け `RECENT.md` も同走査で生成 (Claude は Read 不要)。
+
+### description 規約 (検索ヒット率を上げる)
+
+ノートを書く時、description には**機械検索される語**を 1 つ以上含める。
+
+- project 系 → 案件名 / ライブラリ固有名 (例: `ATSURAE DS`, `Figma Code Connect`)
+- mistakes 系 → エラー文の特徴語 / 失敗対象の関数名 / ファイルパス
+- design 系 → 適用される技術名 / パターン名 (例: `Compound Component`)
+- feedback 系 → 適用される作業種別 (例: `PR 説明文`, `コミットメッセージ`)
+
+「読んで意味が通じる説明文」だけでは grep に当たらない。**何の語で思い出されるべきか**を意識する。
 
 ## session 開始時の受動再会
 

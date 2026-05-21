@@ -37,6 +37,7 @@ argument-hint: "[query] -- 省略時は重複候補の sim 降順 top 4 から"
 | 一方が固有名詞シグナル多数 | カテゴリ移動 (project/<name>/ 等) |
 | frontmatter `name` が英 snake_case で他は日本語 | name 揃え (フォルダ命名ルールに合わせる) |
 | 本文が `**Why:**` `**How to apply:**` ラベル付きの段落だけ | 体裁リッチ化 (callout + 表 + mermaid に書き直す、AGENTS.md の推奨構造を参照) |
+| description に機械検索語 (固有名詞 / エラー語 / 技術名 / 作業種別) が無い | description 補強 (AGENTS.md 「description 規約」参照、recall ヒット率を上げる) |
 | 判断不能 / 現状で完成している | スキップ (multiSelect には**載せない**) |
 
 ### 3. レポート 1 画面提示
@@ -74,6 +75,7 @@ AskUserQuestion(multiSelect=true) で承認ペアを選ばせる:
 - **親子関係化**: 親ノートと同名のサブフォルダを作成 → 親ノート自体もサブフォルダ内に移動 → 子ノートを同サブフォルダへ移動 → 子の戻る link を親に書き換え → 親の frontmatter を **必ず** 自動で `type: sub-hub` に変更し、`name` も日本語タイトル (フォルダ名) に揃える (英 snake_case `user_xxx` 等が残っていたら更新) → 親の `## メンバー` セクションを初期化 (`regen-hubs.py` は親 hub の子としてサブ hub を表示するだけで、サブ hub 内のメンバーリストは触らないため手動初期化が必要)
 - **name 揃え**: frontmatter `name` がファイル名 (日本語タイトル) と不一致なら、`name` をファイル名に合わせて Edit。inbound wikilink は実ファイル名で張られているのでリンク切れは起きないが、検索一貫性のため揃える
 - **カテゴリ移動**: 該当ノートを target カテゴリへ git mv 相当で移動 → `type` frontmatter を更新 → inbound wikilink は名前変わらないので張替え不要だが、戻る link は更新
+- **description 補強**: 該当ノートの frontmatter `description` を Edit。カテゴリに応じて以下の語を 1 つ以上含める (project: 案件名 / ライブラリ固有名、mistakes: エラー文の特徴語 / 関数名 / file path、design: 技術名 / パターン名、feedback: 作業種別)。意味は変えず、grep ヒット用の語を追加するだけ
 
 ### 6. dead link 検証
 
