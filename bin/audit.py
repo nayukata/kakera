@@ -29,6 +29,13 @@ DECAY_DAYS: dict[str, int | None] = {
     "permanent": None,
 }
 
+try:
+    import yaml  # type: ignore[import-not-found]
+
+    HAS_YAML = True
+except ImportError:
+    HAS_YAML = False
+
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.DOTALL)
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
@@ -124,6 +131,7 @@ def main() -> int:
     recurrents: list[tuple[str, int, str]] = []  # (name, recurrence, last_hit)
     by_category: dict[str, list[tuple[str, str]]] = defaultdict(list)
     misclassified_design: list[tuple[str, list[str]]] = []  # (name, matched signals)
+    yaml_broken: list[tuple[str, str]] = []  # (path, error)
 
     # design/ にあるノートが固有名詞シグナルを含んでいたら project/<name>/ への誤分類候補とする。
     # 再発防止: mistakes/2026-05-20_design配下にプロジェクト固有知識を混入.md
@@ -149,6 +157,16 @@ def main() -> int:
         body = md.read_text(encoding="utf-8")
         fm = parse_frontmatter(body)
         category = md.parent.name
+
+        # PyYAML が入っていれば frontmatter を厳格パース。`: ` 混入などを検出
+        if HAS_YAML:
+            fm_match = FRONTMATTER_RE.match(body)
+            if fm_match:
+                try:
+                    yaml.safe_load(fm_match.group(1))
+                except yaml.YAMLError as e:
+                    msg = str(e).split("\n")[0]
+                    yaml_broken.append((f"{category}/{name}", msg))
 
         # design/ 直下 (サブ hub 配下も含む) に固有名詞シグナルがあれば誤分類候補
         if "design" in md.parts and name not in HUB_NAMES:
@@ -199,6 +217,16 @@ def main() -> int:
     print(f"# kakera Vault Audit ({today.isoformat()})")
     print()
     print(f"対象ノート: {sum(1 for _ in KNOWLEDGE.glob('**/*.md'))} 件")
+    print()
+
+    print("## YAML パース不能 (frontmatter 壊れ)")
+    if not HAS_YAML:
+        print("_PyYAML 未インストールのためスキップ。`pip install pyyaml` で有効化。_")
+    elif yaml_broken:
+        for n, err in yaml_broken:
+            print(f"- {n}: {err}")
+    else:
+        print("_該当なし。_")
     print()
 
     print("## Orphan (どこからもリンクされていないノート)")
