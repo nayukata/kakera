@@ -313,7 +313,8 @@ $KAKERA_HOME/
 | `/kakera-init` | 初回セットアップ |
 | `/kakera-search [--in <category>] <query>` | メモの検索 (INDEX を先読みして候補絞り込み、ファジー / 自然文 / カテゴリ縛り対応) |
 | `/kakera-study <query>` | 保留した問いを 1 件解く対話。引数なしでリスト、曖昧キーワードで絞り込み |
-| `/kakera-review` | 古くなったメモ・昇格候補のメンテ。学習対話はしない |
+| `/kakera-review` | 古いメモ・昇格候補・重複候補のメンテキュー表示。判断はしない |
+| `/kakera-organize [query]` | 重複候補を 1 組ずつ提示してマージ / 削除 / 別物保持を対話判定 |
 | `/kakera-coach [on\|off]` | コーチモードの on/off 切り替え。引数なしで反転 |
 | `/kakera-book <書名>` | 読書の気付きを 6 ステップ対話で kakera に保存 |
 

@@ -43,9 +43,28 @@ PROMPT="あなたは kakera の知見抽出エージェントです。
 
 カテゴリ: decisions / mistakes / feedback / design / project / user / questions
 
-抽出ルールはあなたの agent rule (CLAUDE.md / AGENTS.md) の「kakera」セクションに書かれています。
-- Surprise 3 段判定 (整合 / 補強 / 矛盾) でファイル新規作成 / Edit / references 追記を選ぶ
-- サブ hub への振り分け
+【必須の作業手順】 以下の順序で実行すること。スキップ厳禁。
+
+STEP 1. INDEX を読む
+- ${KAKERA_HOME}/INDEX.md を **必ず** Read する。全ノートの 1 行サマリが入っている。
+
+STEP 2. 抽出候補を列挙
+- transcript から「保存に値する知見」を**短文の見出しリスト**として 1 度に書き出す (この時点ではファイルを作らない)。
+
+STEP 3. 各候補について既存ノート検索を実行
+- 候補ごとに INDEX 上で類似テーマを探す
+- 加えて Grep / find で keyword 検索 (タイトル語 / description キー語 / 同義語) を **必ず実行**
+- 候補ごとに「該当する既存ノート」を 0〜3 件挙げる
+
+STEP 4. Surprise 3 段判定を**候補ごとに**適用
+- 既存と 90% 超一致 → **新規作成しない**。既存ノートを Read → `references` に今日の日付を追記する Edit を実行
+- 既存をより一般化 / 反例 / 適用拡張 → 既存を Read → 該当箇所を Edit (重要: 上書きではなく追記/補強)。`references` も追記
+- 既存の前提を覆す or 既存に該当無し → 新規作成。旧ノートがあれば双方向 wikilink を追加
+- 「既存無し」判定は STEP 3 の検索結果が空だった場合のみ許可
+
+STEP 5. 書き込み
+- mistakes/ は recurrence チェック (既存があれば recurrence +1、新規作成しない)
+- design/ への保存前に固有名詞チェック (下記)
 - frontmatter (name / description / type / importance / created / decay / references) 必須
 - 価値ある知見がない場合は何も書かない
 
@@ -58,7 +77,9 @@ PROMPT="あなたは kakera の知見抽出エージェントです。
 - 同時にサブ hub note (type: sub-hub, 戻る: [[プロジェクト]]) も作成し ## メンバー を初期化
 - 命名に確信が無くても保存を優先。後の改名は cheap、design/ に紛れる方が回収コスト高い
 
-完了後、書いた/更新したファイル一覧と Surprise 判定を出力。何も書かなかった場合は「no knowledge to save」とだけ出力。
+完了後、各候補ごとに以下を 1 行で報告:
+  <候補見出し> -> [新規|更新|references追記|スキップ] <ファイル名> (Surprise: <integer 1-10>, 既存 <該当ノート名 or なし>)
+何も書かなかった場合は「no knowledge to save」とだけ出力。
 
 セッション ID: $SESSION_ID
 Vault: $KAKERA_HOME"

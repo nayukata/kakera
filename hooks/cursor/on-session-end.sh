@@ -20,6 +20,10 @@ LOG="$KAKERA_HOME/.hook.log"
 
 mkdir -p "$KAKERA_HOME"
 
+if [ -f "$LOG" ] && [ "$(stat -f%z "$LOG" 2>/dev/null || stat -c%s "$LOG" 2>/dev/null || echo 0)" -gt 1048576 ]; then
+  tail -100 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+fi
+
 INPUT=$(cat)
 echo "[$(date)] Cursor sessionEnd fired (KAKERA_HOME=$KAKERA_HOME)" >> "$LOG"
 

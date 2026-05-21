@@ -206,8 +206,18 @@ fi
 
 cat <<EOF
 
-4. 初回セットアップ skill を実行:
-   /kakera-init   (Claude Code / Codex 共通)
+4. [任意] MCP filesystem server で vault を MCP 経由で扱いたい場合:
+   ~/.claude.json (または各エージェントの mcp 設定) の mcpServers に追加
+   {
+     "kakera-vault": {
+       "command": "npx",
+       "args": ["-y", "@modelcontextprotocol/server-filesystem", "$KAKERA_HOME"]
+     }
+   }
+   Bash + Read で十分なら不要。Obsidian と並行編集する時に便利。
+
+5. 初回セットアップ skill を実行:
+   /kakera-init   (Claude Code / Codex / Cursor 共通)
 
 完了です。会話の中で「これメモ」「同じミスしたくない」等と言うだけで蓄積されます。
 EOF

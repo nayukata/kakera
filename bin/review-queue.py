@@ -5,9 +5,10 @@ Top 10 を選んで `$KAKERA_HOME/REVIEW.md` に書き出す。
 選定基準 (優先順):
 1. stale (decay 期限を超えて references 更新なし)
 2. promotion 候補 (references 3 件以上だが decay != permanent)
+3. duplicate 候補 (同一カテゴリ内で description が酷似)
 
 未解決の問い (questions/) はここでは扱わない。
-学習対話は /kakera-study が担当する (役割分離)。
+学習対話は /kakera-study が、重複マージは /kakera-organize が担当する。
 """
 
 from __future__ import annotations
@@ -79,9 +80,20 @@ def is_stale(fm: dict, today: date) -> bool:
     return (today - base).days > DECAY_DAYS[decay]
 
 
+def description_similarity(a: str, b: str) -> float:
+    if not a or not b:
+        return 0.0
+    ta = set(a.replace("。", " ").split())
+    tb = set(b.replace("。", " ").split())
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / len(ta | tb)
+
+
 def collect():
     today = date.today()
     stale, promotion = [], []
+    by_category: dict[str, list[tuple[str, str, str]]] = {}
     for md in KNOWLEDGE.rglob("*.md"):
         text = md.read_text(encoding="utf-8")
         fm = parse_frontmatter(text)
@@ -94,7 +106,18 @@ def collect():
         refs = fm.get("references", [])
         if isinstance(refs, list) and len(refs) >= 3 and fm.get("decay") != "permanent":
             promotion.append((md.stem, rel, desc))
-    return stale, promotion
+        category = md.parent.name
+        by_category.setdefault(category, []).append((md.stem, rel, desc))
+
+    duplicates: list[tuple[str, str, float]] = []
+    for items in by_category.values():
+        for i, (a_name, _, a_desc) in enumerate(items):
+            for b_name, _, b_desc in items[i + 1 :]:
+                sim = description_similarity(a_desc, b_desc)
+                if sim > 0.6:
+                    duplicates.append((a_name, b_name, sim))
+    duplicates.sort(key=lambda x: -x[2])
+    return stale, promotion, duplicates
 
 
 def render():
@@ -102,22 +125,23 @@ def render():
         print(f"knowledge dir not found: {KNOWLEDGE}", file=sys.stderr)
         return 1
 
-    stale, promotion = collect()
+    stale, promotion, duplicates = collect()
     today = date.today().isoformat()
     lines = [
         "---",
         "name: REVIEW",
-        "description: Vault メンテ用のキュー。週次自動生成。問いの再訪は /kakera-study が担当。",
+        "description: Vault メンテ用のキュー。週次自動生成。問いの再訪は /kakera-study、重複マージは /kakera-organize が担当。",
         f"updated: {today}",
         "---",
         "",
         "# メンテキュー",
         "",
-        "古いメモの更新候補と、permanent 昇格候補。学習目的の「保留した問い」は `/kakera-study` 側で扱う。",
+        "古いメモの更新候補、permanent 昇格候補、重複候補。",
+        "学習目的の「保留した問い」は `/kakera-study`、重複の対話マージは `/kakera-organize` で扱う。",
         "",
     ]
 
-    def section(title: str, items: list, limit: int, note: str):
+    def section(title: str, items: list, limit: int, note: str, formatter):
         lines.append(f"## {title} ({len(items)} 件中 上位 {min(limit, len(items))})")
         lines.append("")
         lines.append(f"_{note}_")
@@ -125,18 +149,28 @@ def render():
         if not items:
             lines.append("- 該当なし")
         else:
-            for name, rel, desc in items[:limit]:
-                desc_short = desc[:80].replace("\n", " ") if desc else ""
-                lines.append(f"- [[{name}]] — {desc_short}")
+            for item in items[:limit]:
+                lines.append(formatter(item))
         lines.append("")
 
+    def basic_fmt(item):
+        name, _rel, desc = item
+        desc_short = desc[:80].replace("\n", " ") if desc else ""
+        return f"- [[{name}]] — {desc_short}"
+
+    def dup_fmt(item):
+        a, b, sim = item
+        return f"- [[{a}]] <-> [[{b}]] (sim={sim:.2f})"
+
     section("鮮度切れ", stale, 10,
-            "decay 期限超過。現状と照合して更新または削除する。")
+            "decay 期限超過。現状と照合して更新または削除する。", basic_fmt)
     section("昇格候補", promotion, 10,
-            "references 3 件以上。decay: permanent に格上げする。")
+            "references 3 件以上。decay: permanent に格上げする。", basic_fmt)
+    section("重複候補", duplicates, 10,
+            "description の jaccard 類似度 0.6 超。/kakera-organize でマージ判断する。", dup_fmt)
 
     OUTPUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"Wrote {OUTPUT} (stale={len(stale)}, promotion={len(promotion)})")
+    print(f"Wrote {OUTPUT} (stale={len(stale)}, promotion={len(promotion)}, duplicates={len(duplicates)})")
     return 0
 
 

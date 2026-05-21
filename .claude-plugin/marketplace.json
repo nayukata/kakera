@@ -18,6 +18,7 @@
         "./skills/kakera-search",
         "./skills/kakera-study",
         "./skills/kakera-review",
+        "./skills/kakera-organize",
         "./skills/kakera-coach",
         "./skills/kakera-book"
       ]
