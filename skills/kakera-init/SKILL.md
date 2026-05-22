@@ -62,6 +62,53 @@ off_streak = 0   # 連続 off カウント
 export KAKERA_HOME="<選択パス>"
 ```
 
+### 5.5. `~/.claude/CLAUDE.md` にカテゴリ判定指針を追記
+
+**目的**: plugin の CLAUDE.md は Claude セッションに自動ロードされないため、knowledge/ 配下に直書きするケースで design/project 判定が抜け落ちる事故が起きる。user 個人の `~/.claude/CLAUDE.md` に直接追記して、全セッションで判定指針が context に入る状態にする。
+
+実施:
+
+- `~/.claude/CLAUDE.md` の中に「## 記憶 (kakera)」セクションがあるか grep で確認
+- 無ければ末尾に下記 stub を追記
+- 既に同名セクションがあれば、内容差分を提示してユーザーに上書き/skip を確認
+
+追記する stub (リポジトリ URL や plugin 情報は含めない):
+
+```markdown
+## 記憶 (kakera)
+
+個人 Vault は `~/Obsidian/kakera/` (`KAKERA_HOME` で指定)。
+
+### カテゴリ早見表
+
+| カテゴリ | 用途 |
+|---|---|
+| `decisions/` | プロジェクト跨ぎで参照する技術選定・方針決定 |
+| `mistakes/` | エラー・修正指示の原因と再発防止策 |
+| `feedback/` | ユーザーから受けた行動ガイドライン |
+| `design/` | **他プロジェクトでも適用できる**設計哲学・原則 |
+| `project/<name>/` | プロジェクト固有の文脈 / 設計判断 / 実装メモ |
+| `user/` | ユーザー背景・働き方 |
+| `questions/` | 保留中の問い |
+
+### project vs design の判定 (knowledge/ に保存する前に必ず実行)
+
+下記シグナルが **1 つでも本文にあれば即 `project/<name>/`** に置く。design/ には移さない。
+
+- 特定の製品名 / 案件名
+- 特定ライブラリ / ツールの固有機能名
+- 固有のファイルパス / スクリプト名
+- 固有の関数名
+
+3 つ全部 yes なら `design/`、1 つでも no なら `project/<name>/`。
+
+1. 別の会社 / 別の案件で読まれても意味が通じるか?
+2. 本文を 3 行に要約した時、固有名を消しても骨子が崩れないか?
+3. 固有名を一般語 (「あるツール」「あるライブラリ」) に置換しても読めるか?
+
+迷ったら `project/<name>/`。あとで一般化できると判断したら design/ に派生ノートを作る方が安全。
+```
+
 ### 6. SessionEnd hook の登録
 
 `~/.claude/settings.json` の `hooks.SessionEnd` に plugin の hook が登録されているか確認。
@@ -75,5 +122,5 @@ plugin 経由なら自動。`install.sh` 経由なら手動追加の指示を提
 ## 禁止事項
 
 - 既存ファイルを許可なく上書きしない (config.toml 含む)
-- ユーザーの rc ファイルを許可なく書き換えない (確認してから追記)
+- ユーザーの rc ファイル / `~/.claude/CLAUDE.md` を許可なく書き換えない (確認してから追記)
 - KAKERA_HOME を環境変数なしで動かそうとしない (必ず export を促す)
