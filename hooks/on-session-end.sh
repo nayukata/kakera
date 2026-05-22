@@ -2,12 +2,40 @@
 # SessionEnd hook: stdin から transcript_path / session_id を受け取り、
 # save-knowledge.sh をデタッチで起動する。即 exit 0。
 #
-# Vault パスは KAKERA_HOME (default ~/kakera) から解決。
+# Vault パスの解決順序:
+#   1. 環境変数 KAKERA_HOME (対話 shell で export 済の場合のみ伝播。Claude Code が
+#      hook を spawn する非対話 subprocess には .zshrc が読まれず空になるため、
+#      これだけに依存すると Vault パスが意図しない default にフォールバックする)
+#   2. 既知候補 ($HOME/Obsidian/kakera, $HOME/kakera, $HOME/.kakera) に
+#      .kakera-config.toml があれば、その vault.path を読む
+#   3. それでも見つからなければ $HOME/kakera にフォールバック
 # このスクリプトは Claude Code 設定 (~/.claude/settings.json の hooks) から呼ばれる。
 
 set -u
 
-KAKERA_HOME="${KAKERA_HOME:-$HOME/kakera}"
+resolve_kakera_home() {
+  if [ -n "${KAKERA_HOME:-}" ]; then
+    printf '%s' "$KAKERA_HOME"
+    return
+  fi
+  local candidate cfg p
+  for candidate in "$HOME/Obsidian/kakera" "$HOME/kakera" "$HOME/.kakera"; do
+    cfg="$candidate/.kakera-config.toml"
+    if [ -f "$cfg" ]; then
+      p=$(grep -E '^[[:space:]]*path[[:space:]]*=' "$cfg" | head -1 \
+            | sed -E 's/^[[:space:]]*path[[:space:]]*=[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')
+      if [ -n "$p" ] && [ -d "$p" ]; then
+        printf '%s' "$p"
+        return
+      fi
+      printf '%s' "$candidate"
+      return
+    fi
+  done
+  printf '%s' "$HOME/kakera"
+}
+
+KAKERA_HOME="$(resolve_kakera_home)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG="$KAKERA_HOME/.hook.log"
 
