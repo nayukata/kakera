@@ -85,58 +85,40 @@ STEP 5. 書き込み
 STEP 6. 書き方品質ガード (新規作成時に必須、更新時は該当箇所のみ)
 
 (a) Template 参照
-- ${KAKERA_PLUGIN_DIR}/templates/notes/<type>.md を Read してスケルトンに従う
-  - design type → templates/notes/design.md
-  - mistakes type → templates/notes/mistakes.md
-  - feedback type → templates/notes/feedback.md
-  - project type → templates/notes/project.md
-  - question type → templates/notes/question.md
-- decisions / user は既存 Note 2 件以上を Read して style を踏襲
+- ${KAKERA_PLUGIN_DIR}/templates/notes/<type>.md (design / mistakes / feedback / project / question) を Read してスケルトン踏襲
+- decisions / user は既存 Note 2 件以上を Read して style 踏襲
 
-(b) 視覚構造の必須要素
-- 冒頭に > [!tip] または > [!important] callout で結論を先出し
-- 比較 / 区別 / 状態は必ず表で
-- フロー / 因果 / 時間軸を含む知見は mermaid 図を最低 1 つ含める
-- 注意点 / 失敗例は > [!warning] > [!danger] callout で強調
+(b) 書き方ルール
+- 視覚構造 (callout / 表 / mermaid / 箇条書き)、散文濫用禁止、見出し構造は **AGENTS.md「ノート本文の推奨構造」に従う** (agent rule として load 済み)
 
 (c) 読み手語彙レベル
-- transcript で使われた語彙レベルに合わせる
-- 専門用語を使う場合は同段落で平易な言い換えを併置する
-- ユーザーが理解の浅さを示していた場合 (「分からない」「何それ」「初心者向けに」等)、専門用語禁止、たとえ話必須
+- transcript の語彙レベルに合わせる。専門用語は同段落で平易な言い換え併置
+- ユーザーが理解の浅さを示した場合 (「分からない」「何それ」)、専門用語禁止 + たとえ話必須
 
-(d) 具体例の多様化
-- 具体例は最低 2 領域 (元会話ドメイン + 日常領域 / 抽象例) を含める
-- 元会話ドメインに閉じない (ユーザーが「分かりづらい」と言ったドメイン例は採用しない)
+(d) references の事実性 (捏造禁止)
+- transcript で観測された発話 / tool 結果のみ。物語化禁止
+  - NG: 「ユーザー指摘で気づいた」(指摘発話なし) / 「〜事故」「〜から学んだ」(該当文脈なし)
+  - OK: 発話の要約、発生した tool 呼び出しの結果
 
-(e) references 欄の事実性
-- transcript で観測された事実のみ書く
-- 物語化 / 推測の追加禁止
-  - NG: 「ユーザー指摘で気づいた」(transcript に指摘発話なし)
-  - NG: 「〜事故」「〜から学んだ」(transcript に該当文脈なし)
-  - OK: transcript の発話を要約した事象、発生した tool 呼び出しの結果
-
-(f) 散文濫用の禁止
-- **Why:** **How to apply:** ラベル並べの段落形式は使わない (古いテンプレ)
-- 段落だけで埋めず、callout / 表 / 箇条書き / mermaid を組み合わせる
-
-【必須】design/ への保存前に固有名詞チェックを実行:
-本文に「特定の製品 / 案件 / ツール / ライブラリ / ファイルパス / 関数名」が出現する場合は design/ には置かず、必ず project/<name>/ に置く。判断の問い 3 つ (別案件で意味通るか / 固有名消して骨子残るか / 一般語に置換できるか) を内部で確認し、1 つでも no なら project/。再発防止: mistakes/2026-05-20_design配下にプロジェクト固有知識を混入.md 参照。
-
-【project/<name>/ フォルダが無い場合】
-- 既存フォルダに合致しなくても design/ に逃さない
-- 本文の最有力固有名 (頭字語 / 製品名 / リポジトリ名 / 拡張子付きファイル名の親概念) から folder 名を snake_case で決め、project/<name>/ を新規作成
-- 同時にサブ hub note (type: sub-hub, 戻る: [[プロジェクト]]) も作成し ## メンバー を初期化
-- 命名に確信が無くても保存を優先。後の改名は cheap、design/ に紛れる方が回収コスト高い
+【必須】design/ への保存前に**固有名詞チェック**: 製品 / 案件 / ライブラリ固有名 / ファイルパス / 関数名が本文に 1 つでもあれば design/ に置かず project/<name>/ に置く。詳細判定 + project/<name>/ 未作成時の対応は **AGENTS.md「カテゴリ分岐の指針」「project/<name>/ が未作成の時」** に従う。再発防止: mistakes/2026-05-20_design配下にプロジェクト固有知識を混入.md
 
 完了後、各候補ごとに以下を 1 行で報告:
   <候補見出し> -> [新規|更新|references追記|スキップ] <ファイル名> (Surprise: <integer 1-10>, 既存 <該当ノート名 or なし>)
-何も書かなかった場合は「no knowledge to save」とだけ出力。
+
+**最後の 1 行は必ず以下の形式 (機械が grep するので厳守):**
+  KAKERA_SUMMARY: created=<N> updated=<N> refs=<N> skipped=<N>
+
+何も書かなかった場合は KAKERA_SUMMARY: created=0 updated=0 refs=0 skipped=0 を出力。
 
 セッション ID: $SESSION_ID
 Vault: $KAKERA_HOME
 Plugin: $KAKERA_PLUGIN_DIR"
 
-printf '%s' "$EXTRACTED" | "$AGENT_CMD" "$AGENT_SUBCMD" "$PROMPT" >> "$LOG" 2>&1 &
+# agent の自由文出力は session 別の debug log に隔離 (main log に流すとノイズ化)
+SAFE_SID=$(printf '%s' "${SESSION_ID:-unknown}" | tr -c '[:alnum:]_-' '_' | cut -c1-40)
+SAVE_LOG="$KAKERA_HOME/.hook-save-${SAFE_SID}-$(date +%Y%m%d-%H%M%S).log"
+
+printf '%s' "$EXTRACTED" | "$AGENT_CMD" "$AGENT_SUBCMD" "$PROMPT" > "$SAVE_LOG" 2>&1 &
 SAVE_PID=$!
 
 (sleep "$TIMEOUT" && kill "$SAVE_PID" 2>/dev/null && echo "[$(date)] TIMEOUT: killed save (pid=$SAVE_PID)" >> "$LOG") &
@@ -145,34 +127,58 @@ WATCHDOG_PID=$!
 wait "$SAVE_PID" 2>/dev/null
 EXIT=$?
 kill "$WATCHDOG_PID" 2>/dev/null
-echo "[$(date)] Save finished (exit=$EXIT)" >> "$LOG"
+
+# agent 出力から KAKERA_SUMMARY 行を抽出。無ければ "missing" として可視化
+SUMMARY=$(grep -m1 '^KAKERA_SUMMARY:' "$SAVE_LOG" 2>/dev/null || echo "KAKERA_SUMMARY: missing (agent did not emit summary; see $SAVE_LOG)")
+echo "[$(date)] Save finished (exit=$EXIT) $SUMMARY (detail=$SAVE_LOG)" >> "$LOG"
+
+# 30 日以上前の save log を掃除
+find "$KAKERA_HOME" -maxdepth 1 -name ".hook-save-*.log" -mtime +30 -delete 2>/dev/null || true
 
 BIN_DIR="$(dirname "$0")/../bin"
 PYTHON="$(command -v python3 || echo /usr/bin/python3)"
 
-# hub note を importance × recency で再生成
-if [ -x "$BIN_DIR/regen-hubs.py" ]; then
-  "$PYTHON" "$BIN_DIR/regen-hubs.py" >> "$LOG" 2>&1 || true
-  echo "[$(date)] Hubs regenerated" >> "$LOG"
+# post-processing は INDEX.md / hub note に並列書き込みすると壊れるので mkdir lock で排他化
+# 別 session 同時終了 → 別 hook プロセスの並列実行を想定。lock 取得失敗側は次回 hook が拾うので skip 安全
+POST_LOCK="$KAKERA_HOME/.post.lock"
+# 5 分以上古い lock は前プロセスのクラッシュ残骸とみなして掃除
+if [ -d "$POST_LOCK" ]; then
+  LOCK_AGE=$(( $(date +%s) - $(stat -f%m "$POST_LOCK" 2>/dev/null || stat -c%Y "$POST_LOCK" 2>/dev/null || echo 0) ))
+  if [ "$LOCK_AGE" -gt 300 ]; then
+    rmdir "$POST_LOCK" 2>/dev/null || true
+    echo "[$(date)] Stale post-lock removed (age=${LOCK_AGE}s)" >> "$LOG"
+  fi
 fi
 
-# 全ノートサマリ INDEX.md を再生成 (検索の入口)
-if [ -x "$BIN_DIR/build-index.py" ]; then
-  "$PYTHON" "$BIN_DIR/build-index.py" >> "$LOG" 2>&1 || true
-  echo "[$(date)] INDEX rebuilt" >> "$LOG"
-fi
+if mkdir "$POST_LOCK" 2>/dev/null; then
+  trap 'rmdir "$POST_LOCK" 2>/dev/null || true' EXIT
 
-# 月初 audit (その月にまだ走っていなければ実行)
-AUDIT_FLAG="$KAKERA_HOME/.audit-$(date +%Y-%m).md"
-if [ -x "$BIN_DIR/audit.py" ] && [ ! -f "$AUDIT_FLAG" ]; then
-  "$PYTHON" "$BIN_DIR/audit.py" > "$AUDIT_FLAG" 2>&1 || true
-  echo "[$(date)] Monthly audit ran -> $AUDIT_FLAG" >> "$LOG"
-fi
+  # hub note を importance × recency で再生成
+  if [ -x "$BIN_DIR/regen-hubs.py" ]; then
+    "$PYTHON" "$BIN_DIR/regen-hubs.py" >> "$LOG" 2>&1 || true
+    echo "[$(date)] Hubs regenerated" >> "$LOG"
+  fi
 
-# 週次 review-queue (ISO 週単位で flag)
-REVIEW_FLAG="$KAKERA_HOME/.review-$(date +%G-W%V).flag"
-if [ -x "$BIN_DIR/review-queue.py" ] && [ ! -f "$REVIEW_FLAG" ]; then
-  "$PYTHON" "$BIN_DIR/review-queue.py" >> "$LOG" 2>&1 || true
-  touch "$REVIEW_FLAG"
-  echo "[$(date)] Weekly review-queue regenerated" >> "$LOG"
+  # 全ノートサマリ INDEX.md を再生成 (検索の入口)
+  if [ -x "$BIN_DIR/build-index.py" ]; then
+    "$PYTHON" "$BIN_DIR/build-index.py" >> "$LOG" 2>&1 || true
+    echo "[$(date)] INDEX rebuilt" >> "$LOG"
+  fi
+
+  # 月初 audit (その月にまだ走っていなければ実行)
+  AUDIT_FLAG="$KAKERA_HOME/.audit-$(date +%Y-%m).md"
+  if [ -x "$BIN_DIR/audit.py" ] && [ ! -f "$AUDIT_FLAG" ]; then
+    "$PYTHON" "$BIN_DIR/audit.py" > "$AUDIT_FLAG" 2>&1 || true
+    echo "[$(date)] Monthly audit ran -> $AUDIT_FLAG" >> "$LOG"
+  fi
+
+  # 週次 review-queue (ISO 週単位で flag)
+  REVIEW_FLAG="$KAKERA_HOME/.review-$(date +%G-W%V).flag"
+  if [ -x "$BIN_DIR/review-queue.py" ] && [ ! -f "$REVIEW_FLAG" ]; then
+    "$PYTHON" "$BIN_DIR/review-queue.py" >> "$LOG" 2>&1 || true
+    touch "$REVIEW_FLAG"
+    echo "[$(date)] Weekly review-queue regenerated" >> "$LOG"
+  fi
+else
+  echo "[$(date)] Post-processing skipped (another hook holds lock)" >> "$LOG"
 fi

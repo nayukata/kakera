@@ -132,6 +132,7 @@ def main() -> int:
     by_category: dict[str, list[tuple[str, str]]] = defaultdict(list)
     misclassified_design: list[tuple[str, list[str]]] = []  # (name, matched signals)
     yaml_broken: list[tuple[str, str]] = []  # (path, error)
+    bad_titles: list[tuple[str, str]] = []  # (path, reason)
 
     # design/ にあるノートが固有名詞シグナルを含んでいたら project/<name>/ への誤分類候補とする。
     # 再発防止: mistakes/2026-05-20_design配下にプロジェクト固有知識を混入.md
@@ -151,12 +152,33 @@ def main() -> int:
     )
     BACKTICK_FILE_RE = re.compile(r"`([A-Za-z0-9_./\-]+\.[a-zA-Z]{1,5})`")
     ACRONYM_RE = re.compile(r"\b[A-Z]{3,}\b")
+    # タイトル品質: ASCII 1-9 文字の直後にスペース無く日本語文字が続く = jargon prefix の疑い
+    # 例: rc環境変数... / hubノート... / Surprise3段判定... を検出
+    # kakera ノート... のようにスペース挟むものは検出しない (主語が明示されている)
+    JARGON_PREFIX_RE = re.compile(r"^([A-Za-z][A-Za-z0-9]{0,8})[ぁ-んァ-ヴ一-龥]")
+    # 確立語は contextual に通じるので除外
+    ALLOW_HEAD_TOKENS = {
+        "AI", "UI", "UX", "API", "URL", "URI", "DOM", "CSS", "HTML", "JSON",
+        "E2E", "LLM", "PR", "OS", "DB", "CLI", "GUI", "OAuth", "JWT",
+        "INDEX", "RECENT", "REVIEW",
+    }
+    MIN_TITLE_LEN = 9
 
     for md in sorted(KNOWLEDGE.glob("**/*.md")):
         name = md.stem
         body = md.read_text(encoding="utf-8")
         fm = parse_frontmatter(body)
         category = md.parent.name
+
+        # タイトル品質チェック (hub/sub-hub は除外: メタノートでタイトル自由度高い)
+        is_hub = name in HUB_NAMES or fm.get("type") in ("hub", "sub-hub")
+        if not is_hub:
+            if len(name) < MIN_TITLE_LEN:
+                bad_titles.append((f"{category}/{name}", f"短すぎ ({len(name)} 文字 < {MIN_TITLE_LEN})"))
+            else:
+                jm = JARGON_PREFIX_RE.match(name)
+                if jm and jm.group(1) not in ALLOW_HEAD_TOKENS:
+                    bad_titles.append((f"{category}/{name}", f"先頭 jargon '{jm.group(1)}' の直後に日本語 (主語を補う)"))
 
         # PyYAML が入っていれば frontmatter を厳格パース。`: ` 混入などを検出
         if HAS_YAML:
@@ -217,6 +239,14 @@ def main() -> int:
     print(f"# kakera Vault Audit ({today.isoformat()})")
     print()
     print(f"対象ノート: {sum(1 for _ in KNOWLEDGE.glob('**/*.md'))} 件")
+    print()
+
+    print("## タイトル品質 (主語省略 / jargon prefix の疑い)")
+    if bad_titles:
+        for n, reason in bad_titles:
+            print(f"- {n} ({reason})")
+    else:
+        print("_該当なし。_")
     print()
 
     print("## YAML パース不能 (frontmatter 壊れ)")
