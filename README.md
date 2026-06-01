@@ -229,6 +229,13 @@ RLS のポリシー無し挙動を整理したい
 ```
 
 更新は `/plugin marketplace update kakera` してから `/plugin update kakera`。
+反映されない場合 (cache 古いまま) は `~/.claude/plugins/marketplaces/kakera/` が git clone なので直接 pull する。
+
+```sh
+git -C ~/.claude/plugins/marketplaces/kakera pull --ff-only
+```
+
+hook 本体 (SessionEnd / SessionStart) は marketplace cache では無く install.sh で導入した repo を直接参照する。repo 側は `git pull` で更新すれば次 session から即反映される (cache 同期は不要)。
 
 ### B. install.sh 経由 (Claude Code 以外も対応)
 
