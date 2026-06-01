@@ -4,6 +4,7 @@ AI コーディングエージェント (Claude Code / Codex / Cursor 等) の�
 Vault パス: 環境変数 `$KAKERA_HOME` (default `~/kakera`)。
 詳細プロトコルは各 skill (`/kakera-init` `/kakera-search` `/kakera-study` `/kakera-review` `/kakera-coach` `/kakera-book`) を参照。
 
+<!-- kakera-inject:start -->
 ## 入力トリガー (自然言語で保存)
 
 ユーザーが以下のような発話をしたら、直近の会話から要点を抽出して保存する。
@@ -43,6 +44,7 @@ Vault パス: 環境変数 `$KAKERA_HOME` (default `~/kakera`)。
 3. ヒット 0 件でも「INDEX 確認済み」を 1 行残す (例: `kakera: 該当ノートなし`)。沈黙すると検索したか事後に判別不能
 
 INDEX は `bin/build-index.py` が SessionEnd hook で自動更新。ユーザー向け `RECENT.md` も同走査で生成 (Claude は Read 不要)。
+<!-- kakera-inject:end -->
 
 ### description 規約 (検索ヒット率を上げる)
 
@@ -64,6 +66,7 @@ INDEX は `bin/build-index.py` が SessionEnd hook で自動更新。ユーザ�
 - `explicit`: 関連知見を見つけたら毎回明示
 - `implicit` (default): `importance: high` または矛盾発生時のみ明示
 
+<!-- kakera-inject:start -->
 ## コーチモード (理解度チェック)
 
 `[study] enabled = true` の時のみ有効 (default on)。
@@ -78,6 +81,7 @@ INDEX は `bin/build-index.py` が SessionEnd hook で自動更新。ユーザ�
 opt-out 発話 (「いいから答えだけ」「飛ばして」) で session 内 off。
 連続 3 セッション off で恒久 off 確認 (`[study] off_streak` で追跡)。
 詳細: `/kakera-coach` SKILL.md。
+<!-- kakera-inject:end -->
 
 ## 書き込み時の必須ルール
 

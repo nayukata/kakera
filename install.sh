@@ -94,15 +94,24 @@ declare_hub decisions "意思決定"       "技術選定と理由"
 declare_hub mistakes  "失敗学習"       "エラー・修正指示の原因と再発防止"
 declare_hub questions "問い"           "未解決の問い (8 割止め)"
 
-# bin/ hooks/ を symlink (リポジトリ更新が即反映されるように)
-mkdir -p "$KAKERA_HOME/bin" "$KAKERA_HOME/hooks"
+# bin/ を symlink (リポジトリ更新が即反映されるように)。
+# hooks/ は settings.json から直接 $REPO_DIR を参照する (vault 経由の indirection は廃止)。
+# 旧来 vault/hooks/ に symlink を置いていたが、editor 等が symlink を実ファイルで上書きする
+# drift 事故が発生したため、間接層自体を撤廃した。
+mkdir -p "$KAKERA_HOME/bin"
 for f in audit.py regen-hubs.py review-queue.py build-index.py; do
   ln -sfn "$REPO_DIR/bin/$f" "$KAKERA_HOME/bin/$f"
 done
-for f in on-session-end.sh save-knowledge.sh; do
-  ln -sfn "$REPO_DIR/hooks/$f" "$KAKERA_HOME/hooks/$f"
-done
-ok "bin/ hooks/ symlinked from repo"
+ok "bin/ symlinked from repo"
+
+# 旧バージョンが置いた vault/hooks/ の symlink を後片付け (実ファイル化していたら触らない)
+if [ -d "$KAKERA_HOME/hooks" ]; then
+  for f in on-session-end.sh save-knowledge.sh inject-recall.sh; do
+    vlink="$KAKERA_HOME/hooks/$f"
+    if [ -L "$vlink" ]; then rm "$vlink"; fi
+  done
+  rmdir "$KAKERA_HOME/hooks" 2>/dev/null || true
+fi
 
 # Obsidian graph view テンプレ (INDEX/RECENT/REVIEW を除外、カテゴリ別カラーグループ)
 # 既存の .obsidian/graph.json があれば触らない (ユーザー設定を尊重)
@@ -153,7 +162,7 @@ cat <<EOF
 
 2. agent rule (AGENTS.md / CLAUDE.md / GEMINI.md は同一ファイルへの symlink) を取り込み:
    この repo の AGENTS.md を、お使いのエージェントが読むパスへ配置してください。
-   - Claude Code: ~/.claude/CLAUDE.md に追記 (marketplace 経由なら plugin が自動 provide)
+   - Claude Code: 想起 / コーチ / 保存トリガーは 3a の SessionStart hook が AGENTS.md から自動注入するので手動コピー不要。書き込み規約まで常時載せたい場合のみ ~/.claude/CLAUDE.md に追記
    - Codex: ~/.codex/AGENTS.md またはプロジェクトルートの AGENTS.md
    - Cursor: プロジェクトルートの AGENTS.md (Cursor は AGENTS.md 規約サポート)
    - Gemini CLI: ~/.gemini/GEMINI.md またはプロジェクトルートの GEMINI.md
@@ -163,15 +172,21 @@ EOF
 if [ "$HAS_CLAUDE" -eq 1 ]; then
 cat <<EOF
 
-3a. [Claude Code] SessionEnd hook を登録:
-    ~/.claude/settings.json の hooks.SessionEnd に以下を追加
+3a. [Claude Code] hook を登録: ~/.claude/settings.json の hooks に以下を追加
     {
-      "matcher": "*",
-      "hooks": [{
-        "type": "command",
-        "command": "$REPO_DIR/hooks/on-session-end.sh"
+      "SessionEnd": [{
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "$REPO_DIR/hooks/on-session-end.sh" }]
+      }],
+      "SessionStart": [{
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "$REPO_DIR/hooks/inject-recall.sh" }]
       }]
     }
+    - SessionEnd: session 終了時に学びを抽出して保存
+    - SessionStart: 想起 / コーチ / 保存トリガーを context に注入 (AGENTS.md を単一ソースに抜粋)
+      手書きで CLAUDE.md にコピーする必要はない (ドリフト防止)
+    - パスは repo を直接指す (vault 経由 symlink は drift 事故防止のため廃止)
 EOF
 fi
 
