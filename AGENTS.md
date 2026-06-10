@@ -44,6 +44,10 @@ Vault パス: 環境変数 `$KAKERA_HOME` (default `~/kakera`)。
 3. ヒット 0 件でも「INDEX 確認済み」を 1 行残す (例: `kakera: 該当ノートなし`)。沈黙すると検索したか事後に判別不能
 
 INDEX は `bin/build-index.py` が SessionEnd hook で自動更新。ユーザー向け `RECENT.md` も同走査で生成 (Claude は Read 不要)。
+
+### `BROKEN.md` がある時 (壊れた wikilink)
+
+`$KAKERA_HOME/BROKEN.md` は build-index.py が「実ファイルに解決しない `[[X]]`」を 1 件以上検出した時のみ生成する (0 件になれば自動削除)。session 冒頭で存在に気付いたら、本文の指示に沿って prefix 補完 / rename 追従 / バッククォート化のいずれかで潰す。残すと wikilink グラフが壊れたままになる。
 <!-- kakera-inject:end -->
 
 ### description 規約 (検索ヒット率を上げる)
@@ -145,6 +149,9 @@ references:
 - ファイル名 = 日本語タイトルそのもの。`feedback_` 等のカテゴリ prefix は付けない (フォルダで表現)
 - `decisions/` `mistakes/` のみ `YYYY-MM-DD_` 日付 prefix を付ける
 - wikilink `[[name]]` は実ファイル名と完全一致 (kebab/snake/英訳の揺れ厳禁)
+- **ファイル名と wikilink には `/` `:` `\` を入れない**。tailwind の `top-1/2` のようにスラッシュが意味を持つ識別子を使いたい時は `top-1-2` のようにハイフン化し、本文中で意味を補足する。`/` を含めると macOS で path 区切りに化けて subdirectory + 別名ファイルになり、wikilink が壊れる
+- **mistakes/ のノートを wikilink する時は必ず `[[YYYY-MM-DD_xxx]]` の prefix 付きで書く**。本文側で prefix を落として `[[xxx]]` と書きがちだが、prefix 無しでは実ファイルに解決しない
+- ノートを rename したら、被リンク (`[[旧名]]`) を grep して新名に追従させる。残骸は SessionEnd 後の `BROKEN.md` (存在すれば) で検出される
 
 ### サブ hub (同名フォルダ運用)
 
